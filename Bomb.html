@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Timer</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  </head>
+  <body onload="Init()">
+    <header class="bomb-header">
+      <div class="header-content">
+        <i class="fas fa-bomb"></i>
+        <span>HELL BOMB</span>
+      </div>
+    </header>
+    <div id="container">
+      <script src="index.js"></script>
+      <div id="THEBOMB"></div>
+      <div id="THEEXPLOSION"></div>
+    </div>
+  </body>
+</html>
+
+<script>
+  // User settings
+  var initialMinutes = 30;
+  var initialSeconds = 00;
+  var todayIsChristmas = false;
+
+  // Global varibles
+  var minutes = 0;
+  var seconds = 0;
+  var refreshIntervalId = 0;
+  var refreshIntervalId2 = 0;
+  var showTimer = false;
+  var flashCount = 0;
+  var endTime = null;
+  var isRunning = false;
+  var lastBeepTime = 0;
+
+  function PlayAudio(filename) {
+    var audio = new Audio(filename).play();
+  }
+
+  function Init() {
+    document.documentElement.requestFullscreen().catch(err => {
+      console.log("Error attempting to enable fullscreen:", err.message);
+    });
+    
+    if (todayIsChristmas) {
+      document.getElementById("THEBOMB").innerHTML =
+        '<img src="bomb_christmas.png" id="bomb">';
+      document.getElementById("THEBOMB").style.left = "-20px";
+    } else {
+      document.getElementById("THEBOMB").innerHTML =
+        '<img src="bomb.png" id="bomb">';
+      document.getElementById("THEBOMB").style.left = "30px";
+    }
+    document.getElementById("THEBOMB").innerHTML +=
+      '<div id="timerBG" class="lcdfont">30:00</div>';
+    document.getElementById("THEBOMB").innerHTML +=
+      '<div id="timer" class="lcdfont"> </div>';
+    
+    // Add keypad container
+    document.getElementById("THEBOMB").innerHTML +=
+      '<div id="keypad" class="keypad-container">' +
+      '<div class="keypad-grid">' +
+      '<button onclick="inputDigit(1)">1</button>' +
+      '<button onclick="inputDigit(2)">2</button>' +
+      '<button onclick="inputDigit(3)">3</button>' +
+      '<button onclick="inputDigit(4)">4</button>' +
+      '<button onclick="inputDigit(5)">5</button>' +
+      '<button onclick="inputDigit(6)">6</button>' +
+      '<button onclick="inputDigit(7)">7</button>' +
+      '<button onclick="inputDigit(8)">8</button>' +
+      '<button onclick="inputDigit(9)">9</button>' +
+      '<button onclick="inputDigit(0)">0</button>' +
+      '<button class="clear-btn" onclick="clearInput()">CLEAR</button>' +
+      '</div>' +
+      '</div>';
+    
+    document.getElementById("THEBOMB").innerHTML +=
+      '<button id="startButton" class="bomb-button" onclick="StartTimer()">Start</button>';
+    document.getElementById("THEEXPLOSION").innerHTML = "";
+  }
+
+  var inputTime = "";
+
+  function inputDigit(digit) {
+    if (inputTime.length < 4) {
+      // If this is the first digit after defusing, clear the display
+      if (inputTime.length === 0) {
+        document.getElementById("timer").style.visibility = "hidden";
+        document.getElementById("timerBG").innerHTML = "00:00";
+      }
+      inputTime += digit;
+      updateDisplayTime();
+    }
+    PlayAudio("beep.wav");
+  }
+
+  function clearInput() {
+    inputTime = "";
+    document.getElementById("timerBG").innerHTML = "00:00";
+    document.getElementById("timer").style.visibility = "hidden";
+    PlayAudio("beep.wav");
+  }
+
+  function updateDisplayTime() {
+    let displayText;
+    if (inputTime.length === 0) {
+      displayText = "00:00";
+    } else {
+      // Start filling from right to left
+      let allDigits = inputTime.padStart(4, '0');
+      let mins = allDigits.slice(0, 2);
+      let secs = allDigits.slice(2);
+      displayText = mins + ":" + secs;
+    }
+    document.getElementById("timerBG").innerHTML = displayText;
+    document.getElementById("timer").style.visibility = "hidden";
+  }
+
+  function StartTimer() {
+    document.getElementById("THEEXPLOSION").innerHTML = "";
+    if (inputTime.length > 0) {
+      // Convert the input time correctly based on position
+      let allDigits = inputTime.padStart(4, '0');
+      minutes = parseInt(allDigits.slice(0, 2));
+      seconds = parseInt(allDigits.slice(2));
+    } else {
+      minutes = initialMinutes;
+      seconds = initialSeconds;
+    }
+    
+    // Calculate end time
+    const totalSeconds = minutes * 60 + seconds;
+    endTime = Date.now() + (totalSeconds * 1000);
+    isRunning = true;
+    
+    // Hide keypad
+    document.getElementById("keypad").style.display = "none";
+    
+    updateTimer();
+    flashCount = 3;
+    clearInterval(refreshIntervalId);
+    clearInterval(refreshIntervalId2);
+    refreshIntervalId = requestAnimationFrame(updateTimer);
+    refreshIntervalId2 = setInterval(FlashTimer, 50);
+    PlayAudio("armbomb.wav");
+    
+    // Replace Start button with Defuse button
+    document.getElementById("startButton").outerHTML = 
+      '<button id="defuseButton" class="bomb-button defuse" onclick="DefuseTimer()">Defuse</button>';
+  }
+
+  function DefuseTimer() {
+    isRunning = false;
+    endTime = null;
+    cancelAnimationFrame(refreshIntervalId);
+    clearInterval(refreshIntervalId2);
+    PlayAudio("defused.mp3");
+    
+    // Keep the current time visible
+    document.getElementById("timer").style.visibility = "visible";
+    inputTime = "";
+    
+    // Show keypad again
+    document.getElementById("keypad").style.display = "flex";
+    
+    // Replace Defuse button with Start button
+    document.getElementById("defuseButton").outerHTML = 
+      '<button id="startButton" class="bomb-button" onclick="StartTimer()">Start</button>';
+  }
+
+  function updateTimer() {
+    if (!isRunning || !endTime) return;
+
+    const remaining = Math.max(0, endTime - Date.now());
+    const totalSeconds = Math.ceil(remaining / 1000);
+    
+    minutes = Math.floor(totalSeconds / 60);
+    seconds = totalSeconds % 60;
+
+    var text = minutes;
+    if (minutes < 10) {
+      text = "0" + text;
+    }
+    text += ":";
+    if (seconds < 10) {
+      text += "0" + seconds;
+    } else {
+      text += seconds;
+    }
+
+    const currentTime = Date.now();
+    if (minutes === 0 && seconds <= 10 && seconds > 0) {
+      // Only beep if more than 900ms have passed since last beep
+      if (currentTime - lastBeepTime >= 900) {
+        PlayAudio("beep.wav");
+        lastBeepTime = currentTime;
+      }
+    }
+    if (minutes === 0 && seconds === 0 && !refreshIntervalId2) {
+      refreshIntervalId2 = setInterval(FlashTimer, 50);
+      PlayAudio("doublebeep.wav");
+    }
+    
+    document.getElementById("timer").innerHTML = text;
+    
+    if (totalSeconds === 0) {
+      isRunning = false;
+      TerroristsWin();
+      return;
+    }
+    
+    refreshIntervalId = requestAnimationFrame(updateTimer);
+  }
+
+  function TerroristsWin() {
+    isRunning = false;
+    endTime = null;
+    document.getElementById("THEEXPLOSION").innerHTML =
+      '<img src="explosion2.gif" id="explosion">';
+    document.getElementById("THEBOMB").innerHTML = "";
+    cancelAnimationFrame(refreshIntervalId);
+    PlayAudio("explode.wav");
+  }
+
+  function FlashTimer() {
+    showTimer = !showTimer;
+    if (showTimer) {
+      document.getElementById("timer").style.visibility = "visible";
+    } else {
+      document.getElementById("timer").style.visibility = "hidden";
+    }
+    flashCount--;
+    if (flashCount == 0) {
+      document.getElementById("timer").style.visibility = "visible";
+      clearInterval(refreshIntervalId2);
+    }
+  }
+
+  document.body.onkeyup = function (e) {
+    if (e.key == " " || e.code == "Space" || e.keyCode == 32) {
+      PlayAudio("AK47_Fire1.wav");
+    }
+  };
+</script>
+
+<style>
+  @font-face {
+    font-family: "digital_7_mono";
+    src: url("digital_7_mono.ttf");
+  }
+  .lcdfont {
+    font-family: "digital_7_mono";
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #1e2124;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .bomb-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #111214;
+    border-bottom: 2px solid #8b0000;
+    padding: 15px 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
+
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-left: 30px;
+    font-family: 'Arial', sans-serif;
+    font-weight: 900;
+    font-size: 1.8rem;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  }
+
+  .header-content i {
+    color: #ff1a1a;
+    filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.5));
+  }
+
+  .header-content span {
+    letter-spacing: 2px;
+  }
+
+  #container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding-top: 100px;
+  }
+  #THEBOMB {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+  #bomb {
+    width: 40vw;
+    max-width: 600px;
+    margin-left: -30px;
+    position: relative;
+  }
+  #explosion {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+  }
+  #timer {
+    color: red;
+    position: absolute;
+    font-size: 3.2vw;
+    pointer-events: none;
+    text-shadow: red 0 0 2px;
+    top: 47%;
+    left: 48.6%;
+    transform: translateX(-50%);
+  }
+  #timerBG {
+    color: #330000;
+    position: absolute;
+    font-size: 3.2vw;
+    pointer-events: none;
+    top: 47%;
+    left: 48.6%;
+    transform: translateX(-50%);
+  }
+  .bomb-button {
+    margin-top: 20px;
+    padding: 12px 30px;
+    margin-left: -50px;
+    font-size: 1.5vw;
+    font-family: 'Arial', sans-serif;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #fff;
+    background: #1a1a1a;
+    border: 2px solid #8b0000;
+    border-radius: 5px;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+    transition: all 0.3s ease;
+  }
+
+  .bomb-button:hover {
+    background: #2a2a2a;
+    box-shadow: 0 0 15px rgba(139, 0, 0, 0.7);
+    transform: scale(1.05);
+  }
+
+  .bomb-button.defuse {
+    background: #400000;
+    border-color: #ff0000;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.8);
+    }
+    100% {
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+  }
+
+  .keypad-container {
+    position: fixed;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111214;
+    padding: 20px;
+    border: 2px solid #8b0000;
+    border-radius: 10px;
+    box-shadow: 0 0 15px rgba(139, 0, 0, 0.3);
+    text-align: center;
+  }
+
+  .keypad-grid {
+    display: inline-grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .keypad-container button {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+    font-family: 'Arial', sans-serif;
+    font-weight: bold;
+    color: #fff;
+    background: #1a1a1a;
+    border: 1px solid #8b0000;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .keypad-container button:hover {
+    background: #2a2a2a;
+    box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+  }
+
+  .clear-btn {
+    grid-column: 2 / span 2;
+    background: #400000 !important;
+    width: auto !important;
+  }
+</style>
