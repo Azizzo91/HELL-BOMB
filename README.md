@@ -2,7 +2,7 @@
 
 ![Screenshot](Screenshot.jpg)
 
-Modified bomb timer from LivinAmuk's live stream. 
+Modified bomb timer from <a href="https://github.com/livinamuk">LivinAmuk (TokyoSpiff)</a>'s livestreams. 
 
 Added
 - Keypad
